@@ -1,5 +1,8 @@
 name: Build
 
+permissions:
+  contents: write
+
 env:
   VS_VERSION: 2019
 
