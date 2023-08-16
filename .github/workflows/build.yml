@@ -1,0 +1,56 @@
+name: Build
+
+env:
+  VS_VERSION: 2019
+
+on:
+  push:
+    branches: [ "master" ]
+
+  workflow_dispatch:
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        flavor: [Release, Debug]
+        arch: [x86, amd64]
+
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          repository: Pulse-Eight/libcec
+          ref: libcec-6.0.2
+          submodules: recursive
+
+      - name: Install python 3.11.4 with debug binaries
+        if: ${{ matrix.flavor == 'Debug' }}
+        run: |
+            $arch = '${{ matrix.arch }}' -eq 'x86' ? "" : "-amd64"
+            curl -o python-3.11.4$arch.exe https://www.python.org/ftp/python/3.11.4/python-3.11.4$arch.exe
+            Start-Process -FilePath "python-3.11.4$arch.exe" -ArgumentList "/quiet Include_debug=1 PrependPath=1 InstallAllUsers=0" -Verb runas -Wait
+
+      - name: Setup developer command prompt
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: ${{ matrix.arch }}
+
+      - name: Create directories
+        run: |
+          mkdir -p ${{ github.workspace }}\build\${{matrix.arch}}_${{ matrix.flavor }}
+
+      - name: Build and install platform library
+        working-directory: ${{ github.workspace }}/src/platform/windows
+        run: cmd /c build-lib.cmd ${{ matrix.arch }} ${{ matrix.flavor }} ${{ env.VS_VERSION }} ${{ github.workspace }}\build\${{matrix.arch}}_${{ matrix.flavor }}
+
+      - name: Build libcec
+        working-directory: ${{ github.workspace }}/windows
+        run: cmd /c build-lib.cmd ${{ matrix.arch }} ${{ matrix.flavor }} ${{ env.VS_VERSION }} ${{ github.workspace }}\build\${{matrix.arch}}_${{ matrix.flavor }} nmake
+
+      - uses: actions/upload-artifact@v3
+        with:
+          name: libcec_${{matrix.arch}}_${{ matrix.flavor }}
+          path: ${{ github.workspace }}\build\${{matrix.arch}}_${{ matrix.flavor }}
