@@ -18,6 +18,11 @@ Both, dynamic link libraries (DLL) and static libs are compiled.
 Building from source requires a few components installed on the host system, including a Visual Studio installation.
 If you just want to link against `libcec` on windows, let's say with Rust or Mingw, a simple prebuilt library + header files will do just fine. 
 
+## How does it work?
+
+A Github workflow pipelines is used for building the library, whenever a new tag is pushed. The tag needs to match the one on the upstream repo: https://github.com/Pulse-Eight/libcec.
+
+
 ## Disclaimer
 
 libcec is a software by Pulse-Eight.

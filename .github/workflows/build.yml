@@ -5,7 +5,8 @@ env:
 
 on:
   push:
-    branches: [ "master" ]
+    tags:
+      - '*'
 
   workflow_dispatch:
 
@@ -23,7 +24,7 @@ jobs:
       - uses: actions/checkout@v3
         with:
           repository: Pulse-Eight/libcec
-          ref: libcec-6.0.2
+          ref: ${{ github.ref_name }}
           submodules: recursive
 
       - name: Install python 3.11.4 with debug binaries
@@ -41,6 +42,8 @@ jobs:
       - name: Create directories
         run: |
           mkdir -p ${{ github.workspace }}\build\${{matrix.arch}}_${{ matrix.flavor }}
+          mkdir -p ${{ github.workspace }}\dist\${{matrix.arch}}\${{ matrix.flavor }}
+          mkdir -p ${{ github.workspace }}\bundle
 
       - name: Build and install platform library
         working-directory: ${{ github.workspace }}/src/platform/windows
@@ -50,7 +53,21 @@ jobs:
         working-directory: ${{ github.workspace }}/windows
         run: cmd /c build-lib.cmd ${{ matrix.arch }} ${{ matrix.flavor }} ${{ env.VS_VERSION }} ${{ github.workspace }}\build\${{matrix.arch}}_${{ matrix.flavor }} nmake
 
+      - name: Copy into dist folder
+        run: cp -r ${{ github.workspace }}\build\${{matrix.arch}}_${{ matrix.flavor }}\${{matrix.arch}}\* ${{ github.workspace }}\dist\${{matrix.arch}}\${{ matrix.flavor }}\
+
       - uses: actions/upload-artifact@v3
         with:
           name: libcec_${{matrix.arch}}_${{ matrix.flavor }}
-          path: ${{ github.workspace }}\build\${{matrix.arch}}_${{ matrix.flavor }}
+          path: ${{ github.workspace }}\dist\${{matrix.arch}}\${{ matrix.flavor }}
+
+      - name: Create zip bundle
+        if: startsWith(github.ref, 'refs/tags/')
+        run: Compress-Archive -Path ${{ github.workspace }}\dist\${{matrix.arch}}\${{ matrix.flavor }}\* -CompressionLevel Optimal -DestinationPath ${{ github.workspace }}\bundle\${{ github.ref_name }}_${{matrix.arch}}_${{ matrix.flavor }}.zip
+
+      - name: Upload Release
+        uses: softprops/action-gh-release@v1
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: |
+            bundle/${{ github.ref_name }}_${{matrix.arch}}_${{ matrix.flavor }}.zip
