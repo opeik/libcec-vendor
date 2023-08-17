@@ -7,11 +7,11 @@ env:
   VS_VERSION: 2019
 
 on:
-  push:
-    tags:
-      - '*'
-
   workflow_dispatch:
+    inputs:
+      libcec_version:
+        description: LibCEC Version
+        required: true
 
 jobs:
   build:
@@ -27,7 +27,7 @@ jobs:
       - uses: actions/checkout@v3
         with:
           repository: Pulse-Eight/libcec
-          ref: ${{ github.ref_name }}
+          ref: libcec-${{ github.event.inputs.libcec_version }}
           submodules: recursive
 
       - name: Install python 3.11.4 with debug binaries
@@ -46,7 +46,6 @@ jobs:
         run: |
           mkdir -p ${{ github.workspace }}\build\${{matrix.arch}}_${{ matrix.flavor }}
           mkdir -p ${{ github.workspace }}\dist\${{matrix.arch}}\${{ matrix.flavor }}
-          mkdir -p ${{ github.workspace }}\bundle
 
       - name: Build and install platform library
         working-directory: ${{ github.workspace }}/src/platform/windows
@@ -64,13 +63,57 @@ jobs:
           name: libcec_${{matrix.arch}}_${{ matrix.flavor }}
           path: ${{ github.workspace }}\dist\${{matrix.arch}}\${{ matrix.flavor }}
 
+  commit:
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/download-artifact@v3
+      - name: Clean prebuilt folder
+        run: git rm -rf prebuilt/*
+      - name: Create folder structure
+        run: |
+          mkdir -p prebuilt/amd64/{debug,release}
+          mkdir -p prebuilt/x86/{debug,release}
+      - name: Copy artifact binaries
+        run: |
+          cp -r libcec_amd64_Release/* prebuilt/amd64/release/
+          cp -r libcec_amd64_Debug/* prebuilt/amd64/debug/
+          cp -r libcec_x86_Release/* prebuilt/x86/release/
+          cp -r libcec_x86_Debug/* prebuilt/x86/debug/
+      - name: List directory
+        run: find .
+      - name: Git commit back to repo
+        run: |
+          git config --global user.name "GH-Workflow"
+          git config --global user.email "libcec-vendor-windows@users.noreply.github.com"
+          git add prebuilt
+          git commit -m "libcec ${{ github.event.inputs.libcec_version }} binaries"
+          git push origin HEAD:master
+          git tag -a ${{ github.event.inputs.libcec_version }} -m "Test tag"
+          git push origin ${{ github.event.inputs.libcec_version }}
+
+  upload_releases:
+    needs: [build,commit]
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/download-artifact@v3
+
+      - name: Create bundles folder
+        run: mkdir bundles/
+
       - name: Create zip bundle
-        if: startsWith(github.ref, 'refs/tags/')
-        run: Compress-Archive -Path ${{ github.workspace }}\dist\${{matrix.arch}}\${{ matrix.flavor }}\* -CompressionLevel Optimal -DestinationPath ${{ github.workspace }}\bundle\${{ github.ref_name }}_${{matrix.arch}}_${{ matrix.flavor }}.zip
+        run: |
+          zip -r bundles/libcec-${{ github.event.inputs.libcec_version }}_amd64_release.zip libcec_amd64_Release
+          zip -r bundles/libcec-${{ github.event.inputs.libcec_version }}_amd64_debug.zip libcec_amd64_Debug
+          zip -r bundles/libcec-${{ github.event.inputs.libcec_version }}_x86_release.zip libcec_x86_Release
+          zip -r bundles/libcec-${{ github.event.inputs.libcec_version }}_x86_debug.zip libcec_x86_Debug
 
       - name: Upload Release
         uses: softprops/action-gh-release@v1
-        if: startsWith(github.ref, 'refs/tags/')
         with:
+          tag_name: ${{ github.event.inputs.libcec_version }}
           files: |
-            bundle/${{ github.ref_name }}_${{matrix.arch}}_${{ matrix.flavor }}.zip
+            bundles/*

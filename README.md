@@ -20,7 +20,8 @@ If you just want to link against `libcec` on windows, let's say with Rust or Min
 
 ## How does it work?
 
-A Github workflow pipelines is used for building the library, whenever a new tag is pushed. The tag needs to match the one on the upstream repo: https://github.com/Pulse-Eight/libcec.
+A Github workflow pipelines is used for building the library, triggered manually.
+The libCEC Version required to enter is in format `major.minor.build`.
 
 
 ## Disclaimer
