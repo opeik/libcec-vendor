@@ -14,7 +14,7 @@ on:
         required: true
 
 jobs:
-  build:
+  build-windows:
     strategy:
       fail-fast: false
       matrix:
@@ -24,7 +24,7 @@ jobs:
     runs-on: windows-latest
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           repository: Pulse-Eight/libcec
           ref: libcec-${{ github.event.inputs.libcec_version }}
@@ -33,9 +33,9 @@ jobs:
       - name: Install python 3.11.4 with debug binaries
         if: ${{ matrix.flavor == 'Debug' }}
         run: |
-            $arch = '${{ matrix.arch }}' -eq 'x86' ? "" : "-amd64"
-            curl -o python-3.11.4$arch.exe https://www.python.org/ftp/python/3.11.4/python-3.11.4$arch.exe
-            Start-Process -FilePath "python-3.11.4$arch.exe" -ArgumentList "/quiet Include_debug=1 PrependPath=1 InstallAllUsers=0" -Verb runas -Wait
+          $arch = '${{ matrix.arch }}' -eq 'x86' ? "" : "-amd64"
+          curl -o python-3.11.4$arch.exe https://www.python.org/ftp/python/3.11.4/python-3.11.4$arch.exe
+          Start-Process -FilePath "python-3.11.4$arch.exe" -ArgumentList "/quiet Include_debug=1 PrependPath=1 InstallAllUsers=0" -Verb runas -Wait
 
       - name: Setup developer command prompt
         uses: ilammy/msvc-dev-cmd@v1
@@ -61,59 +61,103 @@ jobs:
       - uses: actions/upload-artifact@v3
         with:
           name: libcec_${{matrix.arch}}_${{ matrix.flavor }}
-          path: ${{ github.workspace }}\dist\${{matrix.arch}}\${{ matrix.flavor }}
+          path: ${{ github.workspace }}\dist\windows\${{matrix.arch}}\${{ matrix.flavor }}
 
-  commit:
-    needs: build
-    runs-on: ubuntu-latest
+  build-macos:
+    strategy:
+      fail-fast: false
+      matrix:
+        flavor: [Release, Debug]
+        arch: [arm64]
 
-    steps:
-      - uses: actions/checkout@v3
-      - uses: actions/download-artifact@v3
-      - name: Clean prebuilt folder
-        run: git rm -rf prebuilt/*
-      - name: Create folder structure
-        run: |
-          mkdir -p prebuilt/amd64/{debug,release}
-          mkdir -p prebuilt/x86/{debug,release}
-      - name: Copy artifact binaries
-        run: |
-          cp -r libcec_amd64_Release/* prebuilt/amd64/release/
-          cp -r libcec_amd64_Debug/* prebuilt/amd64/debug/
-          cp -r libcec_x86_Release/* prebuilt/x86/release/
-          cp -r libcec_x86_Debug/* prebuilt/x86/debug/
-      - name: List directory
-        run: find .
-      - name: Git commit back to repo
-        run: |
-          git config --global user.name "GH-Workflow"
-          git config --global user.email "libcec-vendor-windows@users.noreply.github.com"
-          git add prebuilt
-          git commit -m "libcec ${{ github.event.inputs.libcec_version }} binaries"
-          git push origin HEAD:master
-          git tag -a ${{ github.event.inputs.libcec_version }} -m "Test tag"
-          git push origin ${{ github.event.inputs.libcec_version }}
-
-  upload_releases:
-    needs: [build,commit]
-    runs-on: ubuntu-latest
+    runs-on: macos-latest
 
     steps:
-      - uses: actions/download-artifact@v3
-
-      - name: Create bundles folder
-        run: mkdir bundles/
-
-      - name: Create zip bundle
-        run: |
-          zip -r bundles/libcec-${{ github.event.inputs.libcec_version }}_amd64_release.zip libcec_amd64_Release
-          zip -r bundles/libcec-${{ github.event.inputs.libcec_version }}_amd64_debug.zip libcec_amd64_Debug
-          zip -r bundles/libcec-${{ github.event.inputs.libcec_version }}_x86_release.zip libcec_x86_Release
-          zip -r bundles/libcec-${{ github.event.inputs.libcec_version }}_x86_debug.zip libcec_x86_Debug
-
-      - name: Upload Release
-        uses: softprops/action-gh-release@v1
+      - uses: DeterminateSystems/magic-nix-cache-action@main
+      - uses: DeterminateSystems/nix-installer-action@main
+      - uses: actions/setup-python@v5
         with:
-          tag_name: ${{ github.event.inputs.libcec_version }}
-          files: |
-            bundles/*
+          python-version: "3.11.4"
+
+      - uses: actions/checkout@v4
+        with:
+          repository: Pulse-Eight/libcec
+          ref: libcec-${{ github.event.inputs.libcec_version }}
+          submodules: recursive
+
+      - name: Build and install platform library
+        working-directory: ${{ github.workspace }}/src/platform
+        run: |
+          nix shell nix run github:nixos/nixpkgs/nixpkgs-24.05-darwin#{cmake,ninja} --command \
+            cmake -S . -B build -G Ninja && \
+            ninja && \
+            sudo ninja install
+
+      - name: Build libcec
+        run: |
+          nix shell nix run github:nixos/nixpkgs/nixpkgs-24.05-darwin#{cmake,ninja} --command \
+            cmake -S . -B build -G Ninja && \
+            ninja
+
+      - name: Copy into dist folder
+        run: cp -r ${{ github.workspace }}/build/${{matrix.arch}}_${{ matrix.flavor }}/${{matrix.arch}}/* ${{ github.workspace }}/dist/${{matrix.arch}}/${{ matrix.flavor }}/
+
+      - uses: actions/upload-artifact@v3
+        with:
+          name: libcec_${{matrix.arch}}_${{ matrix.flavor }}
+          path: ${{ github.workspace }}/dist/macos/${{matrix.arch}}/${{ matrix.flavor }}
+
+  # commit:
+  #   needs: build
+  #   runs-on: ubuntu-latest
+
+  #   steps:
+  #     - uses: actions/checkout@v3
+  #     - uses: actions/download-artifact@v3
+  #     - name: Clean prebuilt folder
+  #       run: git rm -rf prebuilt/*
+  #     - name: Create folder structure
+  #       run: |
+  #         mkdir -p prebuilt/amd64/{debug,release}
+  #         mkdir -p prebuilt/x86/{debug,release}
+  #     - name: Copy artifact binaries
+  #       run: |
+  #         cp -r libcec_amd64_Release/* prebuilt/amd64/release/
+  #         cp -r libcec_amd64_Debug/* prebuilt/amd64/debug/
+  #         cp -r libcec_x86_Release/* prebuilt/x86/release/
+  #         cp -r libcec_x86_Debug/* prebuilt/x86/debug/
+  #     - name: List directory
+  #       run: find .
+  #     - name: Git commit back to repo
+  #       run: |
+  #         git config --global user.name "GH-Workflow"
+  #         git config --global user.email "libcec-vendor-windows@users.noreply.github.com"
+  #         git add prebuilt
+  #         git commit -m "libcec ${{ github.event.inputs.libcec_version }} binaries"
+  #         git push origin HEAD:master
+  #         git tag -a ${{ github.event.inputs.libcec_version }} -m "Test tag"
+  #         git push origin ${{ github.event.inputs.libcec_version }}
+
+  # upload_releases:
+  #   needs: [build, commit]
+  #   runs-on: ubuntu-latest
+
+  #   steps:
+  #     - uses: actions/download-artifact@v3
+
+  #     - name: Create bundles folder
+  #       run: mkdir bundles/
+
+  #     - name: Create zip bundle
+  #       run: |
+  #         zip -r bundles/libcec-${{ github.event.inputs.libcec_version }}_amd64_release.zip libcec_amd64_Release
+  #         zip -r bundles/libcec-${{ github.event.inputs.libcec_version }}_amd64_debug.zip libcec_amd64_Debug
+  #         zip -r bundles/libcec-${{ github.event.inputs.libcec_version }}_x86_release.zip libcec_x86_Release
+  #         zip -r bundles/libcec-${{ github.event.inputs.libcec_version }}_x86_debug.zip libcec_x86_Debug
+
+  #     - name: Upload Release
+  #       uses: softprops/action-gh-release@v1
+  #       with:
+  #         tag_name: ${{ github.event.inputs.libcec_version }}
+  #         files: |
+  #           bundles/*
