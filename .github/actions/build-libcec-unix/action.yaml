@@ -24,9 +24,7 @@ runs:
       uses: actions/checkout@v4
       with:
         path: libcec
-        repository: Pulse-Eight/libcec
-        ref: libcec-${{ env.libcec_version }}
-        submodules: recursive
+        repository: opeik/libcec
 
     - name: Install Nix
       uses: DeterminateSystems/nix-installer-action@main
@@ -36,8 +34,7 @@ runs:
 
     - name: Build libcec
       shell: bash
-      working-directory: libcec
-      run: ../build-macos.sh . '${{ matrix.build_type }}'
+      run: ./build-macos.sh '${{ github.workspace }}/libcec' '${{ matrix.build_type }}'
 
     - name: Set output
       id: set_output

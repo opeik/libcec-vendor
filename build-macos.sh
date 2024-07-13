@@ -6,7 +6,8 @@ set -euxo pipefail
 path="$1"
 kind="$2"
 
-cmake -S . -B build -G Ninja -D "CMAKE_BUILD_TYPE=$kind" -D BUILD_STATIC_LIB=True -Wno-dev
+cd "$path"
+cmake -S . -B build -G Ninja -D CMAKE_BUILD_TYPE=$kind -D BUILD_STATIC_LIB=True -Wno-dev
 cmake --build build
 
 mkdir -p dist
