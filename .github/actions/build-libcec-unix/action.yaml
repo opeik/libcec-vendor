@@ -37,7 +37,7 @@ runs:
     - name: Build libcec
       shell: bash
       working-directory: libcec
-      run: ./build-macos.sh . '${{ matrix.build_type }}'
+      run: ../build-macos.sh . '${{ matrix.build_type }}'
 
     - name: Extract binaries
       shell: bash
