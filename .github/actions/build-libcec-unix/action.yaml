@@ -44,8 +44,8 @@ runs:
       working-directory: libcec
       run: |
         set -euxo pipefail
-        mkdir -p libcec/dist
-        cp -rf build/**/*.{a,so,dylib} '${{ github.workspace }}/libcec/dist'
+        mkdir -p dist
+        cp -rf build/**/*.{a,so,dylib} dist
 
     - name: Set output
       id: set_output
