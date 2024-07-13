@@ -31,9 +31,7 @@ runs:
       uses: actions/checkout@v4
       with:
         path: libcec
-        repository: Pulse-Eight/libcec
-        ref: libcec-${{ env.libcec_version }}
-        submodules: recursive
+        repository: opeik/libcec
 
     - name: Install Python
       shell: pwsh

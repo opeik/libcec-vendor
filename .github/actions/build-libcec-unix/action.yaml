@@ -2,6 +2,9 @@ name: build-libcec-unix
 description: Builds libcec on Unix environments.
 
 inputs:
+  arch:
+    description: The architecture being built.
+    required: true
   build_type:
     description: The build type, either "Release" or "Debug".
     required: true
