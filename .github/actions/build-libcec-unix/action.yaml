@@ -36,15 +36,16 @@ runs:
 
     - name: Build libcec
       shell: bash
-      run: ./build-macos.sh libcec ${{ matrix.build_type }}
+      working-directory: libcec
+      run: ./build-macos.sh . '${{ matrix.build_type }}'
 
     - name: Extract binaries
       shell: bash
+      working-directory: libcec
       run: |
         set -euxo pipefail
         mkdir -p libcec/dist
-        cp -rf libcec/build/src/libcec/*.dylib libcec/dist
-        # cp -rf libcec/build/src/libcec/*.a libcec/dist
+        cp -rf build/**/*.{a,so,dylib} '${{ github.workspace }}/libcec/dist'
 
     - name: Set output
       id: set_output
