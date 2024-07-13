@@ -44,6 +44,7 @@ runs:
       working-directory: libcec
       run: |
         set -euxo pipefail
+        shopt -s globstar nullglob
         mkdir -p dist
         cp -rf build/**/*.{a,so,dylib} dist
 
