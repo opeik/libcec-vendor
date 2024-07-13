@@ -39,14 +39,6 @@ runs:
       working-directory: libcec
       run: ../build-macos.sh . '${{ matrix.build_type }}'
 
-    - name: Extract binaries
-      shell: bash
-      working-directory: libcec
-      run: |
-        set -euxo pipefail
-        mkdir -p dist
-        find build \( -name '*.a' -o -name '*.so' -o -name '*.dylib' \) -print -exec cp {} dist \;
-
     - name: Set output
       id: set_output
       shell: bash
