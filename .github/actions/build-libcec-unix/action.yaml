@@ -44,9 +44,8 @@ runs:
       working-directory: libcec
       run: |
         set -euxo pipefail
-        shopt -s globstar nullglob
         mkdir -p dist
-        cp -rf build/**/*.{a,so,dylib} dist
+        find build \( -name '*.a' -o -name '*.so' -o -name '*.dylib' \) -print -exec cp {} dist \;
 
     - name: Set output
       id: set_output
